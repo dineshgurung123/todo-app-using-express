@@ -1,24 +1,20 @@
-//To do
-
-//1 add a new todo                        done        
-//2 Remove a todo                          done
-// 3. mark a todo as completed             done
-//4. Reverse a the todo status              done 
-//5. filter the todo                       done
-//6. get all to do                          done
-//7 get all completed todo                   done
-//8 get all uncompleted todo                   done
-//9 get todo by id                         done
-
-
-
 const express = require('express')
 const { readFile } = require('fs')
 const path = require('path')
+const  {createClient}   = require('@supabase/supabase-js')
+const { error } = require('console')
+const { ifError } = require('assert')
+const { devNull } = require('os')
+
+
+const supabase = createClient('https://gszowrbrsqeeaaqjzuit.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdzem93cmJyc3FlZWFhcWp6dWl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY1MTk5NTUsImV4cCI6MjA1MjA5NTk1NX0.33dSkbZAI8gP5ZOoRTyfPJtONVPf4FHrC5orHJVF33E')
+
+
 
 
 const fs = require('fs').promises
-const port = 3000
+const port = 5000
+
 
 const app = express()
 
@@ -58,52 +54,64 @@ try {
 app.get('/todos' , async(req, res)=>{
  
 
-  const {completed} = req.query
-   const todos = await readTodos()
+  // const {completed} = req.query
+  //  const todos = await readTodos()
 
-  if (completed !== undefined) {
+  // if (completed !== undefined) {
     
-     const data =  todos.filter((t)=>t.completed.toString() === completed)
-     return  res.send({todos: data})
-    }
-  
-
+  //    const data =  todos.filter((t)=>t.completed.toString() === completed)
+  //    return  res.send({todos: data})
+  //   }
+  console.log("Hello")
+  const {data, error} = await supabase.from('todo').select('*')
+      console.log(data)
+     
+      
+  if(error){
+    return res.status(400).json({error: error.message})
+  }
   res.send({
-    todos
+    data
+    
   })
 
 })
 
 app.get('/todos/:id',  async(req, res)=>{
+      const {id} = req.params 
 
-      const {id} = req.params
+      // const todos = await readTodos()
 
-      const todos = await readTodos()
+        const   {data:todos, error} = await supabase.from('todo').select('*').eq('id', id)
        
-      const todo =  todos.find((current)=>current.id === Number(id))
+      // const todo =  todos.find((current)=>current.id === Number(id))
        
-     if(!todo){
-      res.status(404).send("Not found")
+     if(error){
+       res.status(404).send({message: error})
      }
        
-     res.status(200).send(todo)
+      res.status(200).send(todos)
 })
 
 app.post('/todos', async(req, res)=>{
 
 const {title, note}= req.body
 
+
 if(!title){
  return  res.status(400).send({message: "Title cannot be empty"})
 }
-const todos = await readTodos()
+// const todos = await readTodos()
 
 
 const newTodo = {id : Date.now(), title: title, note: note, completed: false}
 
-todos.push(newTodo)
 
-await writeTodos(todos)
+const {error} = await supabase.from('todo').insert({title: newTodo.title, note: newTodo.note, completed:newTodo.completed})
+
+// todos.push(newTodo)
+
+// await writeTodos(todos)
 
 res.send("Todo created")
 })
@@ -112,7 +120,7 @@ app.put('/todos/:id', async(req, res)=>{
 
 const {id} = req.params
 
-  const todos =  await readTodos()
+  // const todos =  await readTodos()
 
     const todo = todos.find((current)=>current.id === Number(id))
       
@@ -122,7 +130,7 @@ const {id} = req.params
     
     todo.completed = true
       
-    writeTodos(todos)
+    // writeTodos(todos)
     res.send("Updated")
 
 })
@@ -130,32 +138,42 @@ const {id} = req.params
 app.delete('/todos/:id', async(req, res)=>{
 
      const {id} = req.params
-           let todos = await readTodos()
+          //  let todos = await readTodos()
        
-       let todo = todos.find((current)=>current.id === Number(id))
-
-       if(!todo){
-         res.status(404).send("Data not available")
+      //  let todo = todos.find((current)=>current.id === Number(id))
+                
+      const   {data:todos, error} = await supabase.from('todo').delete('*').eq('id', id)
+       
+       if(error){
+         res.status(404).send({message:error})
        }
        
-        todos = todos.filter((c)=>c.id !== todo.id)
+        // todos = todos.filter((c)=>c.id !== todo.id)
 
-        await writeTodos(todos)
+        // await writeTodos(todos)
 
-        res.status(200).send({message : `todo with id ${todo.id} deleted successfully`})
+        res.status(200).send({message : `todo with id deleted successfully`})
 })
 
 app.delete('/todos' , async(req, res)=>{
  
-      const todos = await  readTodos()
+      // const todos = await  readTodos()
 
-  
-      await writeTodos([])
+    const {data , error} =  await supabase.from('todo').delete().neq('id', 0)
+          
+    // .neq('completed', false)
+      // await writeTodos([])
+    
+      if(error){
+
+        return res.status(400).json({message: error})
+      }
+
  res.status(200).send(`Todo deleted successfully`)
     
 })
 
-app.get('/')
+
 
 app.listen(port, ()=>{
     console.log(`server running on port ${port}`)
